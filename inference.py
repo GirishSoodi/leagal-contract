@@ -26,7 +26,6 @@ API_BASE_URL = os.getenv("API_BASE_URL") or "https://router.huggingface.co/v1"
 MODEL_NAME = os.getenv("MODEL_NAME") or "meta-llama/Meta-Llama-3-8B-Instruct"
 API_KEY = os.getenv("HF_TOKEN")
 
-IMAGE_NAME = "legalcontractreview_env"
 MAX_STEPS = 50
 
 
@@ -91,27 +90,29 @@ CONTENT: <text or NONE>
         return action, content
 
     except Exception:
-        # 🔥 NEVER CRASH — SAFE FALLBACK
         return "next_clause", None
 
 
 # =========================================================
-# MAIN TASK LOOP (FULLY SAFE)
+# MAIN TASK LOOP (FIXED ENV INIT)
 # =========================================================
 async def run_task(task_id: str):
     client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
 
     env = None
 
-    # 🔥 SAFE ENV INIT
+    # =====================================================
+    # 🔥 FIX: REMOVE DOCKER, USE VALIDATOR ENV
+    # =====================================================
     try:
-        env = await LegalcontractreviewEnv.from_docker_image(IMAGE_NAME, timeout=60)
-    except Exception:
-        try:
-            env = LegalcontractreviewEnv(base_url="http://localhost:8000")
-        except Exception as e:
-            print(f"[ERROR] Env init failed: {e}")
-            return
+        base_url = os.getenv("ENV_BASE_URL", "http://localhost:8000")
+        print(f"[INFO] Connecting to env at {base_url}")
+
+        env = LegalcontractreviewEnv(base_url=base_url)
+
+    except Exception as e:
+        print(f"[ERROR] Env init failed: {e}")
+        return
 
     rewards: List[float] = []
     steps_taken = 0
@@ -119,7 +120,6 @@ async def run_task(task_id: str):
     try:
         print(f"[START] task={task_id} env=legalcontractreview model={MODEL_NAME}")
 
-        # 🔥 SAFE RESET
         try:
             result = await env.reset(task_id=task_id)
         except Exception as e:
@@ -138,7 +138,6 @@ async def run_task(task_id: str):
 
             steps_taken = step
 
-            # FORCE FINISH
             try:
                 if obs.clause_index >= obs.total_clauses - 1:
                     action_type = "finish_review"
@@ -148,14 +147,12 @@ async def run_task(task_id: str):
             except Exception:
                 action_type, content = "next_clause", None
 
-            # PREVENT LOOPING
             if action_type == last_action:
                 action_type = "next_clause"
                 content = None
 
             last_action = action_type
 
-            # SAFE CLAUSE ID
             try:
                 current_clause_id = obs.current_clause.id
             except Exception:
@@ -172,7 +169,6 @@ async def run_task(task_id: str):
                 content=content
             )
 
-            # 🔥 SAFE STEP
             try:
                 result = await env.step(action)
                 obs = result.observation
@@ -217,7 +213,7 @@ async def run_task(task_id: str):
 
 
 # =========================================================
-# ENTRY POINT (SAFE — NO EXIT CRASH)
+# ENTRY POINT
 # =========================================================
 async def main():
     for tid in ["easy", "medium", "hard"]:
@@ -236,3 +232,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except Exception as e:
         print(f"[CRASH] {e}")
+
