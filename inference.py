@@ -1,6 +1,5 @@
 import asyncio
 import os
-import textwrap
 from typing import List, Optional
 
 from openai import OpenAI
@@ -20,9 +19,9 @@ except ModuleNotFoundError:
 
 
 # =========================================================
-# CONFIG (EXACT TEMPLATE STYLE)
+# CONFIG (STRICT TEMPLATE)
 # =========================================================
-IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")  # IMPORTANT
+IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")  # REQUIRED
 API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
 
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
@@ -37,7 +36,7 @@ MAX_TOKENS = 120
 
 
 # =========================================================
-# LOGGING (UNCHANGED TEMPLATE)
+# LOGGING (STRICT FORMAT)
 # =========================================================
 def log_start(task: str, env: str, model: str) -> None:
     print(f"[START] task={task} env={env} model={model}", flush=True)
@@ -118,40 +117,15 @@ CONTENT: <text or NONE>
 
 
 # =========================================================
-# MAIN (STRICT TEMPLATE FLOW)
+# MAIN (FINAL FIXED VERSION)
 # =========================================================
 async def main() -> None:
     client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
 
-    # 🔥 EXACT TEMPLATE STYLE (DOCKER) WITH RETRIES
-    print(f"🔄 Connecting to {BENCHMARK} environment...", flush=True)
-    env = None
-    for attempt in range(5):
-        try:
-            # Try to connect to the local server first
-            env = await LegalcontractreviewEnv.from_address("http://localhost:8000")
-            print(f"✅ Connected to local server on attempt {attempt+1}")
-            break
-        except Exception as e:
-            if attempt == 0:
-                print(f"ℹ️ Local server not ready, trying docker or waiting... ({e})")
-            
-            try:
-                # Fallback to docker only if local fails definitely
-                env = await LegalcontractreviewEnv.from_docker_image(IMAGE_NAME)
-                print(f"✅ Started and connected to docker image {IMAGE_NAME}")
-                break
-            except Exception as e2:
-                if attempt < 4:
-                    wait_time = 2 * (attempt + 1)
-                    print(f"⚠️ Connection attempt {attempt+1} failed. Retrying in {wait_time}s...")
-                    await asyncio.sleep(wait_time)
-                else:
-                    print(f"❌ Failed to connect after {attempt+1} attempts.")
-                    raise e2
+    print(f"🔄 Starting docker environment: {IMAGE_NAME}", flush=True)
 
-    if not env:
-        raise RuntimeError("Could not connect to environment server.")
+    # ✅ ONLY VALID METHOD
+    env = await LegalcontractreviewEnv.from_docker_image(IMAGE_NAME)
 
     rewards: List[float] = []
     steps_taken = 0
