@@ -18,19 +18,39 @@ class LegalcontractreviewEnvironment(Environment):
     SUPPORTS_CONCURRENT_SESSIONS = True
 
     def __init__(self):
-
-        DEFAULT_PATH = os.path.join(os.path.dirname(__file__), "processed", "contracts.json")
-        DATA_PATH = os.getenv("DATA_PATH", DEFAULT_PATH)
+        print(f"🔍 Initializing LegalcontractreviewEnvironment...")
+        
+        # 1. Try to find dataset path
+        # Check environment variable first
+        DATA_PATH = os.getenv("DATA_PATH")
+        if DATA_PATH:
+            print(f"📦 Using DATA_PATH from environment: {DATA_PATH}")
+        else:
+            # Fallback 1: directory relative to this file (for package installations)
+            pkg_path = os.path.join(os.path.dirname(__file__), "processed", "contracts.json")
+            # Fallback 2: directory relative to CWD (for local runs)
+            cwd_path = os.path.join(os.getcwd(), "server", "processed", "contracts.json")
+            
+            if os.path.exists(pkg_path):
+                DATA_PATH = pkg_path
+                print(f"📦 Found dataset in package path: {DATA_PATH}")
+            elif os.path.exists(cwd_path):
+                DATA_PATH = cwd_path
+                print(f"📦 Found dataset in CWD path: {DATA_PATH}")
+            else:
+                DATA_PATH = pkg_path # Default to pkg_path for the error message
+                print(f"⚠️ Dataset not found at {pkg_path} or {cwd_path}")
 
         if not os.path.exists(DATA_PATH):
-            LOCAL_FALLBACK = os.path.join(os.getcwd(), "server", "processed", "contracts.json")
-            if os.path.exists(LOCAL_FALLBACK):
-                DATA_PATH = LOCAL_FALLBACK
-            else:
-                raise FileNotFoundError(f"Dataset not found")
+            raise FileNotFoundError(f"❌ Dataset not found at {DATA_PATH}. Please ensure contracts.json is present.")
 
-        with open(DATA_PATH, "r", encoding="utf-8") as f:
-            self.dataset = json.load(f)
+        try:
+            with open(DATA_PATH, "r", encoding="utf-8") as f:
+                self.dataset = json.load(f)
+            print(f"✅ Loaded dataset with {len(self.dataset)} contracts")
+        except Exception as e:
+            print(f"❌ Error loading dataset: {e}")
+            raise
 
         print(f"✅ Loaded dataset with {len(self.dataset)} contracts")
 
