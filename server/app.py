@@ -1,8 +1,5 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
-#
-# This source code is licensed under the BSD-style license found in the
-# LICENSE file in the root directory of this source tree.
 
 """
 FastAPI application for the LegalContractReview Environment.
@@ -11,49 +8,52 @@ FastAPI application for the LegalContractReview Environment.
 # -------------------------
 # Imports
 # -------------------------
-try:
-    from openenv.core.env_server.http_server import create_app
-    from legalcontractreview.models import (
-        LegalContractReviewAction,
-        LegalContractReviewObservation,
-    )
-    from legalcontractreview.server.environment import LegalcontractreviewEnvironment
+from openenv.core.env_server.http_server import create_app
 
-    app = create_app(
-        LegalcontractreviewEnvironment,
-        LegalContractReviewAction,
-        LegalContractReviewObservation,
-        env_name="LegalContractReview",
-        max_concurrent_envs=1,
-    )
+from legalcontractreview.models import (
+    LegalContractReviewAction,
+    LegalContractReviewObservation,
+)
 
-except Exception as e:
-    import traceback
-    print("🔥 CRITICAL: create_app failed")
-    print(str(e))
-    traceback.print_exc()
-
-    # ✅ SAFE FALLBACK APP (PREVENTS CRASH)
-    from fastapi import FastAPI
-    app = FastAPI()
-
-    @app.get("/")
-    def root():
-        return {"status": "fallback running"}
-
-    @app.post("/reset")
-    def reset():
-        return {"error": "fallback"}
-
-    @app.post("/step")
-    def step():
-        return {"error": "fallback"}
+from legalcontractreview.server.environment import LegalcontractreviewEnvironment
 
 
+# -------------------------
+# Create FastAPI app
+# -------------------------
+app = create_app(
+    LegalcontractreviewEnvironment,
+    LegalContractReviewAction,
+    LegalContractReviewObservation,
+    env_name="LegalContractReview",
+    max_concurrent_envs=1,
+)
+
+
+# -------------------------
+# Health Check (IMPORTANT)
+# -------------------------
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
+# -------------------------
+# Main entry
+# -------------------------
 def main():
     import uvicorn
-    uvicorn.run("server.app:app", host="0.0.0.0", port=8000)
+
+    uvicorn.run(
+        "server.app:app",
+        host="0.0.0.0",
+        port=8000,
+    )
 
 
+# -------------------------
+# CLI execution
+# -------------------------
 if __name__ == "__main__":
     main()
+

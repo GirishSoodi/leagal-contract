@@ -51,7 +51,6 @@ class LegalcontractreviewEnvironment(Environment):
             with open(DATA_PATH, "r", encoding="utf-8") as f:
                 content = f.read().strip()
 
-                # Handle empty file
                 if not content:
                     raise ValueError("Dataset file is empty")
 
@@ -62,7 +61,7 @@ class LegalcontractreviewEnvironment(Environment):
         except Exception as e:
             print("🔥 DATA LOAD FAILED:", e)
 
-            # ✅ SAFE FALLBACK DATA (NEVER CRASH)
+            # ✅ SAFE FALLBACK DATA
             self.dataset = [{
                 "contract_id": "fallback",
                 "clauses": [
@@ -76,19 +75,14 @@ class LegalcontractreviewEnvironment(Environment):
             }]
 
         # =====================================================
-        # INIT STATE
+        # INIT STATE (NO RESET HERE)
         # =====================================================
         self._state = State(episode_id=str(uuid4()), step_count=0)
-        self.reset()
 
-    # =====================================================
-    # NORMALIZATION
     # =====================================================
     def _normalize_key(self, x):
         return str(x).strip().lower()
 
-    # =====================================================
-    # RESET
     # =====================================================
     def reset(self, task_id: Optional[str] = None):
 
@@ -130,8 +124,6 @@ class LegalcontractreviewEnvironment(Environment):
 
         return self._obs(0.0, False)
 
-    # =====================================================
-    # STEP
     # =====================================================
     def step(self, action: LegalContractReviewAction):
 
@@ -189,30 +181,33 @@ class LegalcontractreviewEnvironment(Environment):
         return self._obs(reward, done)
 
     # =====================================================
-    # SCORE
-    # =====================================================
     def compute_score(self):
         return len(self.flagged) / max(len(self.clauses), 1)
 
-    # =====================================================
-    # OBS
     # =====================================================
     def _obs(self, reward, done):
 
         clause = self.clauses[self.index].copy()
         cid = self._normalize_key(clause["id"])
 
+        # 🔥 CRITICAL FIX
+        clause["type"] = self.gt_labels.get(cid, "unknown")
+
         return LegalContractReviewObservation(
             contract_id=self.contract["contract_id"],
             contract_type="general",
             party_role="client",
+
             current_clause=clause,
             clause_index=self.index,
             total_clauses=len(self.clauses),
+
             issues_found=[],
             time_step=self.steps,
+
             reward=reward,
             done=done,
+
             metadata={
                 "task_type": self.task_type,
                 "goal": self.goal,
