@@ -124,7 +124,11 @@ async def main() -> None:
     client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
 
     # 🔥 EXACT TEMPLATE STYLE (DOCKER)
-    env = await LegalcontractreviewEnv.from_docker_image(IMAGE_NAME)
+    # Try to connect to the local server first, fallback to docker only if local fails
+    try:
+       env = await LegalcontractreviewEnv.from_address("http://localhost:8000")
+    except Exception:
+       env = await LegalcontractreviewEnv.from_docker_image(IMAGE_NAME)
 
     rewards: List[float] = []
     steps_taken = 0
