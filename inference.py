@@ -1,7 +1,7 @@
 import asyncio
 import os
-import sys
-from typing import List
+import textwrap
+from typing import List, Optional
 
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # =========================================================
-# SAFE IMPORTS
+# IMPORT ENV
 # =========================================================
 try:
     from legalcontractreview.client import LegalcontractreviewEnv
@@ -20,17 +20,48 @@ except ModuleNotFoundError:
 
 
 # =========================================================
-# CONFIG (SAFE DEFAULTS)
+# CONFIG (EXACT TEMPLATE STYLE)
 # =========================================================
-API_BASE_URL = os.getenv("API_BASE_URL") or "https://router.huggingface.co/v1"
-MODEL_NAME = os.getenv("MODEL_NAME") or "meta-llama/Meta-Llama-3-8B-Instruct"
-API_KEY = os.getenv("HF_TOKEN")
+IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")  # IMPORTANT
+API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
+
+API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
+MODEL_NAME = os.getenv("MODEL_NAME", "meta-llama/Meta-Llama-3-8B-Instruct")
+
+TASK_NAME = os.getenv("TASK_NAME", "easy")
+BENCHMARK = os.getenv("BENCHMARK", "legalcontractreview")
 
 MAX_STEPS = 50
+TEMPERATURE = 0.0
+MAX_TOKENS = 120
 
 
 # =========================================================
-# SAFE LLM POLICY (NO CRASH GUARANTEED)
+# LOGGING (UNCHANGED TEMPLATE)
+# =========================================================
+def log_start(task: str, env: str, model: str) -> None:
+    print(f"[START] task={task} env={env} model={model}", flush=True)
+
+
+def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
+    error_val = error if error else "null"
+    done_val = str(done).lower()
+    print(
+        f"[STEP] step={step} action={action} reward={reward:.2f} done={done_val} error={error_val}",
+        flush=True,
+    )
+
+
+def log_end(success: bool, steps: int, score: float, rewards: List[float]) -> None:
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    print(
+        f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={rewards_str}",
+        flush=True,
+    )
+
+
+# =========================================================
+# LLM POLICY
 # =========================================================
 def llm_policy(obs, goal, client):
     try:
@@ -39,39 +70,32 @@ def llm_policy(obs, goal, client):
         prompt = f"""
 You are a legal contract auditor.
 
-Your task: {goal}
+Task: {goal}
 
 Clause:
 \"\"\"
 {clause.text}
 \"\"\"
 
-Allowed actions:
-- flag_risk
-- suggest_edit
-- next_clause
-- finish_review
+Actions:
+flag_risk
+suggest_edit
+next_clause
+finish_review
 
-STRICT RULES:
-1. Use flag_risk ONLY if clearly HIGH risk
-2. Use suggest_edit ONLY if clause is incorrect or incomplete
-3. Otherwise use next_clause
-4. DO NOT repeat same action unnecessarily
-5. Be conservative — wrong actions are penalized heavily
-
-Output EXACTLY in this format:
-ACTION: <one of the actions>
+Output EXACT:
+ACTION: <action>
 CONTENT: <text or NONE>
 """
 
-        response = client.chat.completions.create(
+        completion = client.chat.completions.create(
             model=MODEL_NAME,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.0,
-            max_tokens=100,
+            temperature=TEMPERATURE,
+            max_tokens=MAX_TOKENS,
         )
 
-        text = response.choices[0].message.content.strip()
+        text = (completion.choices[0].message.content or "").strip()
 
         action = "next_clause"
         content = None
@@ -94,49 +118,31 @@ CONTENT: <text or NONE>
 
 
 # =========================================================
-# MAIN TASK LOOP (FIXED ENV INIT)
+# MAIN (STRICT TEMPLATE FLOW)
 # =========================================================
-async def run_task(task_id: str):
+async def main() -> None:
     client = OpenAI(base_url=API_BASE_URL, api_key=API_KEY)
 
-    env = None
-
-    # =====================================================
-    # 🔥 FIX: REMOVE DOCKER, USE VALIDATOR ENV
-    # =====================================================
-    try:
-        base_url = os.getenv("ENV_BASE_URL", "http://localhost:8000")
-        print(f"[INFO] Connecting to env at {base_url}")
-
-        env = LegalcontractreviewEnv(base_url=base_url)
-
-    except Exception as e:
-        print(f"[ERROR] Env init failed: {e}")
-        return
+    # 🔥 EXACT TEMPLATE STYLE (DOCKER)
+    env = await LegalcontractreviewEnv.from_docker_image(IMAGE_NAME)
 
     rewards: List[float] = []
     steps_taken = 0
+    success = False
+    score = 0.0
+
+    log_start(task=TASK_NAME, env=BENCHMARK, model=MODEL_NAME)
 
     try:
-        print(f"[START] task={task_id} env=legalcontractreview model={MODEL_NAME}")
-
-        try:
-            result = await env.reset(task_id=task_id)
-        except Exception as e:
-            print(f"[ERROR] Reset failed: {e}")
-            return
-
+        result = await env.reset(task_id=TASK_NAME)
         obs = result.observation
         goal = obs.metadata.get("goal", "")
 
         last_action = None
 
         for step in range(1, MAX_STEPS + 1):
-
-            if getattr(result, "done", False):
+            if result.done:
                 break
-
-            steps_taken = step
 
             try:
                 if obs.clause_index >= obs.total_clauses - 1:
@@ -154,13 +160,8 @@ async def run_task(task_id: str):
             last_action = action_type
 
             try:
-                current_clause_id = obs.current_clause.id
+                clause_id = obs.current_clause.id if action_type in ["flag_risk", "suggest_edit"] else None
             except Exception:
-                current_clause_id = None
-
-            if action_type in ["flag_risk", "suggest_edit"]:
-                clause_id = current_clause_id
-            else:
                 clause_id = None
 
             action = LegalContractReviewAction(
@@ -173,63 +174,34 @@ async def run_task(task_id: str):
                 result = await env.step(action)
                 obs = result.observation
                 reward = result.reward or 0.0
-                error = "null"
+                done = result.done
+                error = None
             except Exception as e:
                 reward = 0.0
-                error = str(e).replace("\n", " ")
+                done = False
+                error = str(e)
                 result = type("obj", (), {"done": False})()
 
             rewards.append(reward)
+            steps_taken = step
 
-            print(
-                f"[STEP] step={step} action={action_type} "
-                f"reward={reward:.2f} done={str(getattr(result, 'done', False)).lower()} "
-                f"error={error}"
-            )
+            log_step(step=step, action=action_type, reward=reward, done=done, error=error)
 
-            if getattr(result, "done", False):
+            if done:
                 break
 
-        final_score = getattr(obs, "metadata", {}).get("score", 0.0)
-        success = final_score > 0.7
-
-        rewards_str = ",".join(f"{r:.2f}" for r in rewards)
-
-        print(
-            f"[END] success={str(success).lower()} "
-            f"steps={steps_taken} score={final_score:.2f} rewards={rewards_str}"
-        )
-
-    except Exception as e:
-        print(f"[FATAL ERROR] {e}", file=sys.stderr)
-        print(f"[END] success=false steps={steps_taken} score=0.00 rewards=0.00")
+        score = getattr(obs, "metadata", {}).get("score", 0.0)
+        success = score > 0.7
 
     finally:
         try:
-            if env:
-                await env.close()
-        except Exception:
-            pass
-
-
-# =========================================================
-# ENTRY POINT
-# =========================================================
-async def main():
-    for tid in ["easy", "medium", "hard"]:
-        try:
-            await run_task(tid)
-            await asyncio.sleep(1)
+            await env.close()
         except Exception as e:
-            print(f"[TASK ERROR] {tid}: {e}")
+            print(f"[DEBUG] env.close() error: {e}", flush=True)
+
+        log_end(success=success, steps=steps_taken, score=score, rewards=rewards)
 
 
 if __name__ == "__main__":
-    if not API_KEY:
-        print("[WARNING] Missing API key — running in fallback mode")
-
-    try:
-        asyncio.run(main())
-    except Exception as e:
-        print(f"[CRASH] {e}")
+    asyncio.run(main())
 
