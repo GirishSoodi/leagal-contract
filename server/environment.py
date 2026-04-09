@@ -17,6 +17,9 @@ class LegalcontractreviewEnvironment(Environment):
 
     SUPPORTS_CONCURRENT_SESSIONS = True
 
+    # 🔥 CRITICAL FIX: REGISTER TASKS FOR VALIDATOR
+    AVAILABLE_TASKS = ["easy", "medium", "hard"]
+
     def __init__(self):
         print("🔍 Initializing LegalcontractreviewEnvironment...")
 
@@ -74,21 +77,19 @@ class LegalcontractreviewEnvironment(Environment):
                 "missing_clauses": ["termination"]
             }]
 
-        # INIT STATE ONLY (NO reset here)
+        # INIT STATE ONLY
         self._state = State(episode_id=str(uuid4()), step_count=0)
 
-    # =====================================================
     def _normalize_key(self, x):
         return str(x).strip().lower()
 
     # =====================================================
-    # 🔥 RESET (FIXED FOR TASK SUPPORT)
+    # RESET (TASK SUPPORT FIXED)
     # =====================================================
     def reset(self, task_id: Optional[str] = None):
 
         self._state = State(episode_id=str(uuid4()), step_count=0)
 
-        # ✅ FIX: ensure validator tasks work
         if task_id in ["easy", "medium", "hard"]:
             self.task_type = task_id
         else:
@@ -185,11 +186,11 @@ class LegalcontractreviewEnvironment(Environment):
         return self._obs(reward, done)
 
     # =====================================================
-    # 🔥 SCORE (FIXED FOR GRADER)
+    # SCORE (GRADER FIX)
     # =====================================================
     def compute_score(self):
         base = len(self.visited) / max(len(self.clauses), 1)
-        return max(base, 0.1)  # ensure non-zero
+        return max(base, 0.1)
 
     # =====================================================
     def _obs(self, reward, done):
@@ -197,7 +198,6 @@ class LegalcontractreviewEnvironment(Environment):
         clause = self.clauses[self.index].copy()
         cid = self._normalize_key(clause["id"])
 
-        # 🔥 REQUIRED FOR PYDANTIC
         clause["type"] = self.gt_labels.get(cid, "unknown")
 
         return LegalContractReviewObservation(
