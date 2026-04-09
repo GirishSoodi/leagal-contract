@@ -1,10 +1,24 @@
-from openenv.core.env_server.types import Task
-from .graders import easy_grader, medium_grader, hard_grader
+# NO imports from openenv needed
+
+def grade_fn(state, env):
+    try:
+        return float(env.compute_score())
+    except Exception:
+        return 0.0
 
 
-TASKS = [
-    Task(id="easy", grader=easy_grader, description="Detect high-risk clauses"),
-    Task(id="medium", grader=medium_grader, description="Detect risks and suggest edits"),
-    Task(id="hard", grader=hard_grader, description="Full contract review"),
-]
+TASKS = {
+    "easy": {
+        "description": "Detect high-risk clauses",
+        "grader": grade_fn,
+    },
+    "medium": {
+        "description": "Detect risks and suggest edits",
+        "grader": grade_fn,
+    },
+    "hard": {
+        "description": "Full contract review",
+        "grader": grade_fn,
+    },
+}
 
