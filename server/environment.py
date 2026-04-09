@@ -17,15 +17,12 @@ class LegalcontractreviewEnvironment(Environment):
 
     SUPPORTS_CONCURRENT_SESSIONS = True
 
-    # 🔥 CRITICAL FIX: REGISTER TASKS FOR VALIDATOR
+    # 🔥 CRITICAL FIX: REGISTER TASK NAMES
     AVAILABLE_TASKS = ["easy", "medium", "hard"]
 
     def __init__(self):
         print("🔍 Initializing LegalcontractreviewEnvironment...")
 
-        # =====================================================
-        # 📦 Resolve dataset path
-        # =====================================================
         DATA_PATH = os.getenv("DATA_PATH")
 
         if DATA_PATH:
@@ -44,9 +41,6 @@ class LegalcontractreviewEnvironment(Environment):
                 DATA_PATH = pkg_path
                 print("⚠️ Dataset not found, will fallback safely")
 
-        # =====================================================
-        # 🔥 SAFE DATA LOADING
-        # =====================================================
         try:
             if not os.path.exists(DATA_PATH):
                 raise FileNotFoundError("Dataset file not found")
@@ -64,7 +58,6 @@ class LegalcontractreviewEnvironment(Environment):
         except Exception as e:
             print("🔥 DATA LOAD FAILED:", e)
 
-            # SAFE FALLBACK DATA
             self.dataset = [{
                 "contract_id": "fallback",
                 "clauses": [
@@ -77,14 +70,29 @@ class LegalcontractreviewEnvironment(Environment):
                 "missing_clauses": ["termination"]
             }]
 
-        # INIT STATE ONLY
         self._state = State(episode_id=str(uuid4()), step_count=0)
 
     def _normalize_key(self, x):
         return str(x).strip().lower()
 
     # =====================================================
-    # RESET (TASK SUPPORT FIXED)
+    # 🔥 FINAL FIX: TASKS WITH GRADERS
+    # =====================================================
+    def get_tasks(self):
+        from openenv.core.env_server.types import Task
+
+        def grader(state, env):
+            try:
+                return float(env.compute_score())
+            except Exception:
+                return 0.0
+
+        return [
+            Task(id="easy", description="Detect high-risk clauses", grader=grader),
+            Task(id="medium", description="Detect risks and suggest edits", grader=grader),
+            Task(id="hard", description="Full contract review", grader=grader),
+        ]
+
     # =====================================================
     def reset(self, task_id: Optional[str] = None):
 
@@ -185,8 +193,6 @@ class LegalcontractreviewEnvironment(Environment):
 
         return self._obs(reward, done)
 
-    # =====================================================
-    # SCORE (GRADER FIX)
     # =====================================================
     def compute_score(self):
         base = len(self.visited) / max(len(self.clauses), 1)
