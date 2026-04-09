@@ -1,5 +1,3 @@
-# NO imports from openenv needed
-
 def grade_fn(state, env):
     try:
         return float(env.compute_score())
@@ -7,18 +5,21 @@ def grade_fn(state, env):
         return 0.0
 
 
-TASKS = {
-    "easy": {
+TASKS = [
+    {
+        "id": "easy",
         "description": "Detect high-risk clauses",
         "grader": grade_fn,
     },
-    "medium": {
+    {
+        "id": "medium",
         "description": "Detect risks and suggest edits",
         "grader": grade_fn,
     },
-    "hard": {
+    {
+        "id": "hard",
         "description": "Full contract review",
         "grader": grade_fn,
     },
-}
+]
 
