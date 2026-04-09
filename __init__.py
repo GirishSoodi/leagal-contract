@@ -8,9 +8,13 @@
 
 from .client import LegalcontractreviewEnv
 from .models import LegalContractReviewAction, LegalContractReviewObservation
+from .tasks import TASKS
+
+
 
 __all__ = [
     "LegalContractReviewAction",
     "LegalContractReviewObservation",
     "LegalcontractreviewEnv",
+    "TASKS",
 ]
