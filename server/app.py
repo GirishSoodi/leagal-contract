@@ -18,6 +18,7 @@ from legalcontractreview.models import (
 from legalcontractreview.server.environment import LegalcontractreviewEnvironment
 
 
+
 # -------------------------
 # Create FastAPI app
 # -------------------------

@@ -9,17 +9,17 @@ TASKS = [
     {
         "id": "easy",
         "description": "Detect high-risk clauses",
-        "grader": grade_fn,
+        "grader": "legalcontractreview.tasks:grade_fn",
     },
     {
         "id": "medium",
         "description": "Detect risks and suggest edits",
-        "grader": grade_fn,
+        "grader": "legalcontractreview.tasks:grade_fn",
     },
     {
         "id": "hard",
         "description": "Full contract review",
-        "grader": grade_fn,
+        "grader": "legalcontractreview.tasks:grade_fn",
     },
 ]
 
