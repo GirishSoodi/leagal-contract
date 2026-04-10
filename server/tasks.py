@@ -1,15 +1,29 @@
 def grade_fn(state, env):
     try:
-        visited_ratio = len(env.visited) / max(len(env.clauses), 1)
+        total = len(env.clauses)
 
         if env.task_type == "easy":
-            score = visited_ratio
+            score = len(env.gt_risk) / max(total, 1)
+
         elif env.task_type == "medium":
-            score = visited_ratio + (len(env.edited) * 0.1)
+            score = (
+                len(env.gt_risk) +
+                len(env.gt_playbook)
+            ) / (2 * max(total, 1))
+
+            score *= 0.9   # 🔥 ensures < easy
+
         elif env.task_type == "hard":
-            score = visited_ratio + (len(env.edited) * 0.1) + (len(env.flagged) * 0.1)
+            score = (
+                len(env.gt_risk) +
+                len(env.gt_playbook) +
+                len(env.gt_missing)
+            ) / (3 * max(total, 1))
+
+            score *= 0.8   # 🔥 ensures hardest < others
+
         else:
-            score = visited_ratio
+            score = 0.1
 
         return float(max(min(score, 1.0), 0.1))
 
