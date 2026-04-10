@@ -85,23 +85,22 @@ class LegalcontractreviewEnvironment(Environment):
        import tasks
 
        return [
-          {
+        {
             "id": "easy",
             "description": "Detect high-risk clauses",
             "grader": tasks.grade_fn,
-          },
-          {
+        },
+        {
             "id": "medium",
             "description": "Detect risks and suggest edits",
             "grader": tasks.grade_fn,
-          },
-          {
+        },
+        {
             "id": "hard",
             "description": "Full contract review",
             "grader": tasks.grade_fn,
-          },
-       ]
-    
+        },
+      ]
 
     # =====================================================
     def reset(self, task_id: Optional[str] = None):
