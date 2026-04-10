@@ -12,16 +12,3 @@ tags:
   - compliance
   - nlp
 
-# 🔥 THIS LINE FIXES EVERYTHING
-tasks_module: tasks
-
-tasks:
-  - id: easy
-    description: "Detect high-risk clauses in the contract."
-    difficulty: easy
-  - id: medium
-    description: "Identify risks and provide suggested edits for policy violations."
-    difficulty: medium
-  - id: hard
-    description: "Perform a complete audit: detect risks, suggest edits, and find missing clauses."
-    difficulty: hard
