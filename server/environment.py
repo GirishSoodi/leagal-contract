@@ -12,6 +12,9 @@ from legalcontractreview.models import (
     LegalContractReviewObservation,
 )
 
+# 🔥 IMPORT GRADER (NEW)
+from legalcontractreview.tasks import grade_fn
+
 
 class LegalcontractreviewEnvironment(Environment):
 
@@ -76,21 +79,15 @@ class LegalcontractreviewEnvironment(Environment):
         return str(x).strip().lower()
 
     # =====================================================
-    # 🔥 FINAL FIX: TASKS WITH GRADERS
+    # 🔥 FIXED: USE IMPORTED GRADER
     # =====================================================
     def get_tasks(self):
         from openenv.core.env_server.types import Task
 
-        def grader(state, env):
-            try:
-                return float(env.compute_score())
-            except Exception:
-                return 0.0
-
         return [
-            Task(id="easy", description="Detect high-risk clauses", grader=grader),
-            Task(id="medium", description="Detect risks and suggest edits", grader=grader),
-            Task(id="hard", description="Full contract review", grader=grader),
+            Task(id="easy", description="Detect high-risk clauses", grader=grade_fn),
+            Task(id="medium", description="Detect risks and suggest edits", grader=grade_fn),
+            Task(id="hard", description="Full contract review", grader=grade_fn),
         ]
 
     # =====================================================
@@ -231,4 +228,3 @@ class LegalcontractreviewEnvironment(Environment):
     @property
     def state(self):
         return self._state
-
