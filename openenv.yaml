@@ -1,14 +1,66 @@
 spec_version: 1
 name: legalcontractreview
-description: "A real-world legal contract review environment for evaluating agents on risk detection, playbook alignment, and clause auditing."
+description: Legal contract review environment
 type: space
 runtime: fastapi
 app: server.app:app
 port: 8000
 
+tasks_module: legalcontractreview.tasks   # 🔥 REQUIRED
+
+tasks:
+  - id: easy
+    name: Risk Detection
+    description: Detect high-risk clauses in a legal contract
+    difficulty: easy
+
+    action_space:
+      type: Discrete
+      size: 3
+      description: ["mark_safe", "mark_risky", "skip"]
+
+    observation_space:
+      type: Box
+      shape: [10]
+      low: 0
+      high: 1
+      dtype: float32
+
+  - id: medium
+    name: Risk + Edits
+    description: Identify risks and suggest edits
+    difficulty: medium
+
+    action_space:
+      type: Discrete
+      size: 4
+      description: ["mark_safe", "mark_risky", "edit_clause", "skip"]
+
+    observation_space:
+      type: Box
+      shape: [15]
+      low: 0
+      high: 1
+      dtype: float32
+
+  - id: hard
+    name: Full Contract Audit
+    description: Detect risks, suggest edits, and identify missing clauses
+    difficulty: hard
+
+    action_space:
+      type: Discrete
+      size: 5
+      description: ["mark_safe", "mark_risky", "edit_clause", "flag_missing", "skip"]
+
+    observation_space:
+      type: Box
+      shape: [20]
+      low: 0
+      high: 1
+      dtype: float32
+
 tags:
   - legal
   - contract-review
   - compliance
-  - nlp
-
