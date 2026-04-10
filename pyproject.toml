@@ -42,8 +42,9 @@ server = "legalcontractreview.server.app:main"
 
 [tool.setuptools]
 include-package-data = true
-packages = ["legalcontractreview", "legalcontractreview.server"]
-package-dir = { "legalcontractreview" = ".", "legalcontractreview.server" = "server" }
+
+[tool.setuptools.packages.find]
+where = ["."]
 
 [tool.setuptools.package-data]
 "*" = ["*.json", "*.yaml", "processed/*.json"]
