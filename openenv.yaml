@@ -12,6 +12,9 @@ tags:
   - compliance
   - nlp
 
+# 🔥 THIS LINE FIXES EVERYTHING
+tasks_module: tasks
+
 tasks:
   - id: easy
     description: "Detect high-risk clauses in the contract."
