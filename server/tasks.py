@@ -1,58 +1,59 @@
-def grade_fn(*args, **kwargs):
-    try:
-        # Try to extract env if available
-        env = None
+# legalcontractreview/tasks.py
 
-        if len(args) >= 2:
-            env = args[1]
-        elif "env" in kwargs:
-            env = kwargs["env"]
+def grade_easy(pred, gt):
+    gt_high = {k for k, v in gt["risk"].items() if v == "high"}
+    flagged = set(pred.get("flagged", []))
 
-        # If env not available → fallback (BUT NOT CONSTANT)
-        if env is None:
-            return 0.5  # safe non-constant baseline
+    correct = len(flagged & gt_high)
+    precision = correct / max(len(flagged), 1)
+    recall = correct / max(len(gt_high), 1)
 
-        total = len(getattr(env, "clauses", []))
+    return (precision + recall) / 2
 
-        if getattr(env, "task_type", "") == "easy":
-            score = len(getattr(env, "gt_risk", [])) / max(total, 1)
 
-        elif getattr(env, "task_type", "") == "medium":
-            score = (
-                len(getattr(env, "gt_risk", [])) +
-                len(getattr(env, "gt_playbook", []))
-            ) / (2 * max(total, 1)) * 0.9
+def grade_medium(pred, gt):
+    gt_high = {k for k, v in gt["risk"].items() if v == "high"}
+    gt_review = {k for k, v in gt["playbook"].items() if v in ["review", "violation"]}
 
-        elif getattr(env, "task_type", "") == "hard":
-            score = (
-                len(getattr(env, "gt_risk", [])) +
-                len(getattr(env, "gt_playbook", [])) +
-                len(getattr(env, "gt_missing", []))
-            ) / (3 * max(total, 1)) * 0.8
+    flagged = set(pred.get("flagged", []))
+    edited = set(pred.get("edited", []))
 
-        else:
-            score = 0.3
+    risk_score = len(flagged & gt_high) / max(len(gt_high), 1)
+    edit_score = len(edited & gt_review) / max(len(gt_review), 1)
 
-        return float(max(min(score, 1.0), 0.0))
+    return 0.5 * risk_score + 0.5 * edit_score
 
-    except Exception:
-        return 0.4
+
+def grade_hard(pred, gt):
+    gt_high = {k for k, v in gt["risk"].items() if v == "high"}
+    gt_review = {k for k, v in gt["playbook"].items() if v in ["review", "violation"]}
+    gt_missing = set(gt["missing"])
+
+    flagged = set(pred.get("flagged", []))
+    edited = set(pred.get("edited", []))
+    missing = set(pred.get("missing", []))
+
+    risk_score = len(flagged & gt_high) / max(len(gt_high), 1)
+    edit_score = len(edited & gt_review) / max(len(gt_review), 1)
+    missing_score = len(missing & gt_missing) / max(len(gt_missing), 1)
+
+    return 0.4 * risk_score + 0.3 * edit_score + 0.3 * missing_score
 
 
 TASKS = [
     {
         "id": "easy",
         "description": "Detect high-risk clauses",
-        "grader": "legalcontractreview.tasks:grade_fn",
+        "grader": grade_easy,
     },
     {
         "id": "medium",
         "description": "Detect risks and suggest edits",
-        "grader": "legalcontractreview.tasks:grade_fn",
+        "grader": grade_medium,
     },
     {
         "id": "hard",
         "description": "Full contract review",
-        "grader": "legalcontractreview.tasks:grade_fn",
+        "grader": grade_hard,
     },
 ]

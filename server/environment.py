@@ -12,15 +12,14 @@ from legalcontractreview.models import (
     LegalContractReviewObservation,
 )
 
-# 🔥 IMPORT GRADER (NEW)
-from legalcontractreview.tasks import grade_fn
+# ✅ IMPORT TASKS (FIXED)
+from legalcontractreview.tasks import TASKS
 
 
 class LegalcontractreviewEnvironment(Environment):
 
     SUPPORTS_CONCURRENT_SESSIONS = True
 
-    # 🔥 CRITICAL FIX: REGISTER TASK NAMES
     AVAILABLE_TASKS = ["easy", "medium", "hard"]
 
     def __init__(self):
@@ -78,29 +77,9 @@ class LegalcontractreviewEnvironment(Environment):
     def _normalize_key(self, x):
         return str(x).strip().lower()
 
-    # =====================================================
-    # 🔥 FIXED: USE IMPORTED GRADER
-    # =====================================================
+    # ✅ FIXED TASK REGISTRY
     def get_tasks(self):
-       import tasks
-
-       return [
-        {
-            "id": "easy",
-            "description": "Detect high-risk clauses",
-            "grader": tasks.grade_fn,
-        },
-        {
-            "id": "medium",
-            "description": "Detect risks and suggest edits",
-            "grader": tasks.grade_fn,
-        },
-        {
-            "id": "hard",
-            "description": "Full contract review",
-            "grader": tasks.grade_fn,
-        },
-      ]
+        return TASKS
 
     # =====================================================
     def reset(self, task_id: Optional[str] = None):
@@ -124,7 +103,6 @@ class LegalcontractreviewEnvironment(Environment):
         self.gt_risk = {self._normalize_key(k): v for k, v in self.contract["risk_levels"].items()}
         self.gt_playbook = {self._normalize_key(k): v for k, v in self.contract["playbook_flags"].items()}
         self.gt_missing = [self._normalize_key(x) for x in self.contract.get("missing_clauses", [])]
-        self.initial_gt_missing = list(self.gt_missing)
 
         self.clauses = self.contract["clauses"]
 
@@ -182,10 +160,13 @@ class LegalcontractreviewEnvironment(Environment):
         true_risk = self.gt_risk.get(cid, "low")
         true_flag = self.gt_playbook.get(cid, "ok")
 
+        # ✅ TRACK PREDICTIONS (NEW)
         if action.action_type == "flag_risk":
+            self.flagged.add(cid)
             reward += 1.5 if true_risk == "high" else -1.0
 
         elif action.action_type == "suggest_edit":
+            self.edited.add(cid)
             if true_flag in ["violation", "review"] and action.content:
                 reward += 2.0
             else:
@@ -197,15 +178,26 @@ class LegalcontractreviewEnvironment(Environment):
 
         elif action.action_type == "finish_review":
             done = True
-            score = self.compute_score()
-            reward += 5.0 if score > 0.7 else -1.0
 
         return self._obs(reward, done)
 
     # =====================================================
-    def compute_score(self):
-        base = len(self.visited) / max(len(self.clauses), 1)
-        return max(base, 0.1)
+    # ✅ NEW: PREDICTIONS
+    def get_prediction(self):
+        return {
+            "flagged": list(self.flagged),
+            "edited": list(self.edited),
+            "missing": list(self.pred_missing),
+        }
+
+    # =====================================================
+    # ✅ NEW: GROUND TRUTH
+    def get_ground_truth(self):
+        return {
+            "risk": self.gt_risk,
+            "playbook": self.gt_playbook,
+            "missing": self.gt_missing,
+        }
 
     # =====================================================
     def _obs(self, reward, done):
@@ -233,7 +225,6 @@ class LegalcontractreviewEnvironment(Environment):
             metadata={
                 "task_type": self.task_type,
                 "goal": self.goal,
-                "score": self.compute_score(),
             }
         )
 
