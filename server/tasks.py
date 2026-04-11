@@ -7,20 +7,13 @@ def grade_fn(state, env):
 
         elif env.task_type == "medium":
             score = (
-                len(env.gt_risk) +
-                len(env.gt_playbook)
-            ) / (2 * max(total, 1))
-
-            score *= 0.9   # 🔥 ensures < easy
+                len(env.gt_risk) + len(env.gt_playbook)
+            ) / (2 * max(total, 1)) * 0.9
 
         elif env.task_type == "hard":
             score = (
-                len(env.gt_risk) +
-                len(env.gt_playbook) +
-                len(env.gt_missing)
-            ) / (3 * max(total, 1))
-
-            score *= 0.8   # 🔥 ensures hardest < others
+                len(env.gt_risk) + len(env.gt_playbook) + len(env.gt_missing)
+            ) / (3 * max(total, 1)) * 0.8
 
         else:
             score = 0.1
@@ -35,16 +28,16 @@ TASKS = [
     {
         "id": "easy",
         "description": "Detect high-risk clauses",
-        "grader": grade_fn,
+        "grader": "legalcontractreview.tasks:grade_fn",
     },
     {
         "id": "medium",
         "description": "Detect risks and suggest edits",
-        "grader": grade_fn,
+        "grader": "legalcontractreview.tasks:grade_fn",
     },
     {
         "id": "hard",
         "description": "Full contract review",
-        "grader": grade_fn,
+        "grader": "legalcontractreview.tasks:grade_fn",
     },
 ]

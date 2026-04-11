@@ -1,13 +1,3 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# All rights reserved.
-
-"""
-FastAPI application for the LegalContractReview Environment.
-"""
-
-# -------------------------
-# Imports
-# -------------------------
 from openenv.core.env_server.http_server import create_app
 
 from legalcontractreview.models import (
@@ -15,13 +5,9 @@ from legalcontractreview.models import (
     LegalContractReviewObservation,
 )
 
-from legalcontractreview.server.environment import LegalcontractreviewEnvironment
+from server.environment import LegalcontractreviewEnvironment
 
 
-
-# -------------------------
-# Create FastAPI app
-# -------------------------
 app = create_app(
     LegalcontractreviewEnvironment,
     LegalContractReviewAction,
@@ -31,17 +17,11 @@ app = create_app(
 )
 
 
-# -------------------------
-# Health Check (IMPORTANT)
-# -------------------------
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
 
-# -------------------------
-# Main entry
-# -------------------------
 def main():
     import uvicorn
 
@@ -52,9 +32,5 @@ def main():
     )
 
 
-# -------------------------
-# CLI execution
-# -------------------------
 if __name__ == "__main__":
     main()
-
