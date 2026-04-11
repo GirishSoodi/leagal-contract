@@ -8,4 +8,5 @@
 
 from .environment import LegalcontractreviewEnvironment
 
+
 __all__ = ["LegalcontractreviewEnvironment"]
