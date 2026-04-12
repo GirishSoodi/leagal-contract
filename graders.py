@@ -1,7 +1,6 @@
-from openenv.core.env_server.interfaces import Grader
+# from openenv.core.env_server.interfaces import Grader # Removed base class as it causes import errors
 
-
-class LegalContractGrader(Grader):
+class LegalContractGrader:
     def grade(self, state, env):
         try:
             return float(env.compute_score())

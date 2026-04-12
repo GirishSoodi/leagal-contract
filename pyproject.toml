@@ -26,10 +26,10 @@ server = "server.app:main"
 [tool.setuptools]
 include-package-data = true
 
-# ✅ IMPORTANT (for package detection)
+# ✅ FLAT STRUCTURE RECOVERY
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["legalcontractreview"]
+include = ["*"]
 
 [tool.setuptools.package-data]
 "*" = ["*.json", "*.yaml", "processed/*.json"]

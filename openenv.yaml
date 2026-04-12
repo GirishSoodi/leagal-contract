@@ -6,13 +6,14 @@ runtime: fastapi
 app: server.app:app
 port: 8000
 
-tasks_module: legalcontractreview.tasks   # 🔥 REQUIRED
+tasks_module: tasks   # 🔥 REQUIRED
 
 tasks:
   - id: easy
     name: Risk Detection
     description: Detect high-risk clauses in a legal contract
     difficulty: easy
+    grader: graders:easy_grader
 
     action_space:
       type: Discrete
@@ -30,6 +31,7 @@ tasks:
     name: Risk + Edits
     description: Identify risks and suggest edits
     difficulty: medium
+    grader: graders:medium_grader
 
     action_space:
       type: Discrete
@@ -47,6 +49,7 @@ tasks:
     name: Full Contract Audit
     description: Detect risks, suggest edits, and identify missing clauses
     difficulty: hard
+    grader: graders:hard_grader
 
     action_space:
       type: Discrete

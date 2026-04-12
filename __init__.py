@@ -8,7 +8,7 @@
 
 from .client import LegalcontractreviewEnv
 from .models import LegalContractReviewAction, LegalContractReviewObservation
-from .tasks import TASKS
+from .tasks import TASKS, grade_easy, grade_medium, grade_hard
 
 
 
@@ -17,4 +17,7 @@ __all__ = [
     "LegalContractReviewObservation",
     "LegalcontractreviewEnv",
     "TASKS",
+    "grade_easy",
+    "grade_medium",
+    "grade_hard",
 ]

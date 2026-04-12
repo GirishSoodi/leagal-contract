@@ -7,13 +7,13 @@ from typing import Optional
 from openenv.core.env_server.interfaces import Environment
 from openenv.core.env_server.types import State
 
-from legalcontractreview.models import (
+from models import (
     LegalContractReviewAction,
     LegalContractReviewObservation,
 )
 
-# ✅ IMPORT TASKS (FIXED)
-from legalcontractreview.tasks import TASKS
+# ✅ IMPORT TASKS & GRADERS (FIXED)
+from tasks import TASKS, grade_easy, grade_medium, grade_hard
 
 
 class LegalcontractreviewEnvironment(Environment):
@@ -198,6 +198,25 @@ class LegalcontractreviewEnvironment(Environment):
             "playbook": self.gt_playbook,
             "missing": self.gt_missing,
         }
+
+    # =====================================================
+    # ✅ NEW: COMPUTE SCORE
+    def compute_score(self):
+        try:
+            pred = self.get_prediction()
+            gt = self.get_ground_truth()
+
+            if self.task_type == "easy":
+                return float(grade_easy(pred, gt))
+            elif self.task_type == "medium":
+                return float(grade_medium(pred, gt))
+            elif self.task_type == "hard":
+                return float(grade_hard(pred, gt))
+            
+            return 0.0
+        except Exception as e:
+            print(f"🔥 SCORE CALCULATION FAILED: {e}")
+            return 0.0
 
     # =====================================================
     def _obs(self, reward, done):
