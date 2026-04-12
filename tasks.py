@@ -44,16 +44,16 @@ TASKS = [
     {
         "id": "easy",
         "description": "Detect high-risk clauses",
-        "grader": grade_easy,
+        "grader": "graders:easy_grader",
     },
     {
         "id": "medium",
         "description": "Detect risks and suggest edits",
-        "grader": grade_medium,
+        "grader": "graders:medium_grader",
     },
     {
         "id": "hard",
         "description": "Full contract review",
-        "grader": grade_hard,
+        "grader": "graders:hard_grader",
     },
 ]
