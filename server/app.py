@@ -5,11 +5,11 @@ from models import (
     LegalContractReviewObservation,
 )
 
-from server.environment import LegalcontractreviewEnvironment
+from server.environment import LegalContractReviewEnv
 
 
 app = create_app(
-    LegalcontractreviewEnvironment,
+    LegalContractReviewEnv,
     LegalContractReviewAction,
     LegalContractReviewObservation,
     env_name="LegalContractReview",

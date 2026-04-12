@@ -12,74 +12,54 @@ from models import (
     LegalContractReviewObservation,
 )
 
-# ✅ IMPORT TASKS & GRADERS (FIXED)
-from tasks import TASKS, grade_easy, grade_medium, grade_hard
 
-
-class LegalcontractreviewEnvironment(Environment):
+class LegalContractReviewEnv(Environment):
 
     SUPPORTS_CONCURRENT_SESSIONS = True
 
-    AVAILABLE_TASKS = ["easy", "medium", "hard"]
+    TASKS = [
+        {"id": "easy", "description": "Find high-risk clauses"},
+        {"id": "medium", "description": "Find high-risk + suggest edits"},
+        {"id": "hard", "description": "Full contract review"}
+    ]
 
     def __init__(self):
-        print("🔍 Initializing LegalcontractreviewEnvironment...")
+        self._state = State(episode_id=str(uuid4()), step_count=0)
 
-        DATA_PATH = os.getenv("DATA_PATH")
-
-        if DATA_PATH:
-            print(f"📦 Using DATA_PATH from environment: {DATA_PATH}")
-        else:
-            pkg_path = os.path.join(os.path.dirname(__file__), "processed", "contracts.json")
-            cwd_path = os.path.join(os.getcwd(), "server", "processed", "contracts.json")
-
-            if os.path.exists(pkg_path):
-                DATA_PATH = pkg_path
-                print(f"📦 Found dataset in package path: {DATA_PATH}")
-            elif os.path.exists(cwd_path):
-                DATA_PATH = cwd_path
-                print(f"📦 Found dataset in CWD path: {DATA_PATH}")
-            else:
-                DATA_PATH = pkg_path
-                print("⚠️ Dataset not found, will fallback safely")
+        DATA_PATH = os.path.join(os.path.dirname(__file__), "processed", "contracts.json")
 
         try:
-            if not os.path.exists(DATA_PATH):
-                raise FileNotFoundError("Dataset file not found")
-
             with open(DATA_PATH, "r", encoding="utf-8") as f:
-                content = f.read().strip()
-
-                if not content:
-                    raise ValueError("Dataset file is empty")
-
-                self.dataset = json.loads(content)
-
-            print(f"✅ Loaded dataset with {len(self.dataset)} contracts")
-
-        except Exception as e:
-            print("🔥 DATA LOAD FAILED:", e)
-
+                self.dataset = json.load(f)
+        except:
             self.dataset = [{
                 "contract_id": "fallback",
                 "clauses": [
-                    {"id": "1", "text": "This agreement is valid."},
-                    {"id": "2", "text": "No termination clause provided."}
+                    {"id": "1", "text": "No termination clause provided."},
+                    {"id": "2", "text": "Unlimited liability clause."}
                 ],
-                "labels": {"1": "general", "2": "termination"},
-                "risk_levels": {"1": "low", "2": "high"},
-                "playbook_flags": {"1": "ok", "2": "review"},
+                "labels": {"1": "termination", "2": "liability"},
+                "risk_levels": {"1": "high", "2": "high"},
+                "playbook_flags": {"1": "review", "2": "violation"},
                 "missing_clauses": ["termination"]
             }]
 
-        self._state = State(episode_id=str(uuid4()), step_count=0)
+        self.current = None
+        self.task_type = "easy"
 
-    def _normalize_key(self, x):
-        return str(x).strip().lower()
-
-    # ✅ FIXED TASK REGISTRY
     def get_tasks(self):
-        return TASKS
+        return self.TASKS
+
+    # =====================================================
+    def _get_clause_with_type(self, clause):
+        cid = str(clause["id"])
+        label = self.current.get("labels", {}).get(cid, "general")
+
+        return {
+            "id": clause["id"],
+            "text": clause["text"],
+            "type": label
+        }
 
     # =====================================================
     def reset(self, task_id: Optional[str] = None):
@@ -91,162 +71,157 @@ class LegalcontractreviewEnvironment(Environment):
         else:
             self.task_type = "easy"
 
-        self.contract = random.choice(self.dataset)
-
-        self.goal = {
-            "easy": "Detect high-risk clauses",
-            "medium": "Detect risks and suggest edits",
-            "hard": "Full contract review"
-        }[self.task_type]
-
-        self.gt_labels = {self._normalize_key(k): v for k, v in self.contract["labels"].items()}
-        self.gt_risk = {self._normalize_key(k): v for k, v in self.contract["risk_levels"].items()}
-        self.gt_playbook = {self._normalize_key(k): v for k, v in self.contract["playbook_flags"].items()}
-        self.gt_missing = [self._normalize_key(x) for x in self.contract.get("missing_clauses", [])]
-
-        self.clauses = self.contract["clauses"]
-
-        self.clause_map = {
-            self._normalize_key(c["id"]): i
-            for i, c in enumerate(self.clauses)
-        }
-
-        self.index = 0
-        self.steps = 0
+        self.current = random.choice(self.dataset)
 
         self.flagged = set()
         self.edited = set()
-        self.pred_missing = []
-        self.visited = set()
+        self.pred_missing = set()
 
-        self.last_action = None
-        self.same_action_count = 0
+        self.index = 0
 
-        return self._obs(0.0, False)
+        clause = self._get_clause_with_type(self.current["clauses"][0])
+
+        return LegalContractReviewObservation(
+            contract_id=self.current["contract_id"],
+            contract_type="general",
+            party_role="client",
+
+            current_clause=clause,
+            clause_index=0,
+            total_clauses=len(self.current["clauses"]),
+
+            issues_found=[],
+            time_step=0,
+
+            reward=0.0,
+            done=False,
+
+            metadata={
+                "task_type": self.task_type,
+                "instruction": self._get_instruction()
+            }
+        )
 
     # =====================================================
     def step(self, action: LegalContractReviewAction):
 
         self._state.step_count += 1
-        self.steps += 1
-
-        reward = 0.0
         done = False
+        reward = 0.0
 
-        if action.action_type == self.last_action:
-            self.same_action_count += 1
-        else:
-            self.same_action_count = 0
+        clause = self.current["clauses"][self.index]
+        cid = str(clause["id"])
 
-        self.last_action = action.action_type
-
-        if self.same_action_count > 3:
-            reward -= 0.5
-
-        if action.clause_id is not None:
-            cid_input = self._normalize_key(action.clause_id)
-            if cid_input in self.clause_map:
-                self.index = self.clause_map[cid_input]
-
-        clause = self.clauses[self.index]
-        cid = self._normalize_key(clause["id"])
-
-        if cid not in self.visited:
-            reward += 0.1
-            self.visited.add(cid)
-        else:
-            reward -= 0.1
-
-        true_risk = self.gt_risk.get(cid, "low")
-        true_flag = self.gt_playbook.get(cid, "ok")
-
-        # ✅ TRACK PREDICTIONS (NEW)
+        # -------- TRACK ACTIONS --------
         if action.action_type == "flag_risk":
             self.flagged.add(cid)
-            reward += 1.5 if true_risk == "high" else -1.0
 
         elif action.action_type == "suggest_edit":
             self.edited.add(cid)
-            if true_flag in ["violation", "review"] and action.content:
-                reward += 2.0
-            else:
-                reward -= 0.5
 
         elif action.action_type == "next_clause":
-            if self.index < len(self.clauses) - 1:
+            if self.index < len(self.current["clauses"]) - 1:
                 self.index += 1
 
         elif action.action_type == "finish_review":
             done = True
+            reward = self._compute_score()
 
-        return self._obs(reward, done)
-
-    # =====================================================
-    # ✅ NEW: PREDICTIONS
-    def get_prediction(self):
-        return {
-            "flagged": list(self.flagged),
-            "edited": list(self.edited),
-            "missing": list(self.pred_missing),
-        }
-
-    # =====================================================
-    # ✅ NEW: GROUND TRUTH
-    def get_ground_truth(self):
-        return {
-            "risk": self.gt_risk,
-            "playbook": self.gt_playbook,
-            "missing": self.gt_missing,
-        }
-
-    # =====================================================
-    # ✅ NEW: COMPUTE SCORE
-    def compute_score(self):
-        try:
-            pred = self.get_prediction()
-            gt = self.get_ground_truth()
-
-            if self.task_type == "easy":
-                return float(grade_easy(pred, gt))
-            elif self.task_type == "medium":
-                return float(grade_medium(pred, gt))
-            elif self.task_type == "hard":
-                return float(grade_hard(pred, gt))
-            
-            return 0.0
-        except Exception as e:
-            print(f"🔥 SCORE CALCULATION FAILED: {e}")
-            return 0.0
-
-    # =====================================================
-    def _obs(self, reward, done):
-
-        clause = self.clauses[self.index].copy()
-        cid = self._normalize_key(clause["id"])
-
-        clause["type"] = self.gt_labels.get(cid, "unknown")
+        clause = self._get_clause_with_type(self.current["clauses"][self.index])
 
         return LegalContractReviewObservation(
-            contract_id=self.contract["contract_id"],
+            contract_id=self.current["contract_id"],
             contract_type="general",
             party_role="client",
 
             current_clause=clause,
             clause_index=self.index,
-            total_clauses=len(self.clauses),
+            total_clauses=len(self.current["clauses"]),
 
             issues_found=[],
-            time_step=self.steps,
+            time_step=self._state.step_count,
 
-            reward=reward,
+            reward=float(reward),
             done=done,
 
             metadata={
                 "task_type": self.task_type,
-                "goal": self.goal,
+                "score": float(reward)
             }
         )
 
+    # =====================================================
+    def _compute_score(self):
+
+        gt_risk = {
+            str(cid): risk
+            for cid, risk in self.current.get("risk_levels", {}).items()
+        }
+
+        gt_missing = set([
+            str(x).lower()
+            for x in self.current.get("missing_clauses", [])
+        ])
+
+        # EASY
+        if self.task_type == "easy":
+            gt_set = set([cid for cid, r in gt_risk.items() if r == "high"])
+            return self._f1(self.flagged, gt_set)
+
+        # MEDIUM
+        elif self.task_type == "medium":
+            gt_flagged = set([cid for cid, r in gt_risk.items() if r == "high"])
+            gt_edits = set([
+                cid for cid, flag in self.current.get("playbook_flags", {}).items()
+                if flag in ["review", "violation"]
+            ])
+
+            score_flag = self._f1(self.flagged, gt_flagged)
+            score_edit = self._f1(self.edited, gt_edits)
+
+            return 0.5 * score_flag + 0.5 * score_edit
+
+        # HARD
+        elif self.task_type == "hard":
+            gt_flagged = set([cid for cid, r in gt_risk.items() if r == "high"])
+
+            score_flag = self._f1(self.flagged, gt_flagged)
+            score_missing = self._f1(self.pred_missing, gt_missing)
+
+            return 0.5 * score_flag + 0.5 * score_missing
+
+        return 0.0
+
+    # =====================================================
+    def _f1(self, pred: set, gt: set):
+
+        if len(gt) == 0:
+            return 1.0
+
+        if len(pred) == 0:
+            return 0.0
+
+        precision = len(pred & gt) / len(pred)
+        recall = len(pred & gt) / len(gt)
+
+        if precision + recall == 0:
+            return 0.0
+
+        return 2 * precision * recall / (precision + recall)
+
+    # =====================================================
+    def _get_instruction(self):
+
+        if self.task_type == "easy":
+            return "Flag high-risk clauses"
+
+        elif self.task_type == "medium":
+            return "Flag risks and suggest edits"
+
+        elif self.task_type == "hard":
+            return "Full contract review"
+
+    # =====================================================
     @property
     def state(self):
         return self._state

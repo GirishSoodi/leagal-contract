@@ -6,7 +6,7 @@
 
 """Legalcontractreview environment server components."""
 
-from .environment import LegalcontractreviewEnvironment
+from .environment import LegalContractReviewEnv
 
 
-__all__ = ["LegalcontractreviewEnvironment"]
+__all__ = ["LegalContractReviewEnv"]
